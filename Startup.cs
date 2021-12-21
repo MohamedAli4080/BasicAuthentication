@@ -17,9 +17,10 @@ namespace basic
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddAuthentication("CookieAuth")
-            .AddCookie("CookieAuth",config=>{
-                config.Cookie.Name="Grandmas.Cookie";
-                config.LoginPath="/Home/Authenticate";
+            .AddCookie("CookieAuth", config =>
+            {
+                config.Cookie.Name = "Grandmas.Cookie";
+                config.LoginPath = "/Home/Authenticate";
             });
             services.AddControllersWithViews();
         }
@@ -31,13 +32,14 @@ namespace basic
             {
                 app.UseDeveloperExceptionPage();
             }
-           
+
             app.UseRouting();
- app.UseAuthorization();
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapDefaultControllerRoute();
-                
+
             });
         }
     }
