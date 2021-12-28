@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using NETCore.MailKit.Core;
 
 namespace BasicAuthentication.Controllers
 {
@@ -12,9 +13,13 @@ namespace BasicAuthentication.Controllers
     {
         private readonly UserManager<IdentityUser> _usermanger;
         private readonly SignInManager<IdentityUser> _signInManger;
+        private readonly IEmailService _emailSender;
 
-        public HomeController(UserManager<IdentityUser> usermanger, SignInManager<IdentityUser> signInManger)
+        public HomeController(UserManager<IdentityUser> usermanger,
+        SignInManager<IdentityUser> signInManger,
+        IEmailService EmailSender)
         {
+            this._emailSender = EmailSender;
             this._signInManger = signInManger;
             this._usermanger = usermanger;
 
@@ -78,18 +83,46 @@ namespace BasicAuthentication.Controllers
             var result = await _usermanger.CreateAsync(user, password);
             if (result.Succeeded)
             {
-                if (user != null)
-                {
-                    var signInResult = await _signInManger.PasswordSignInAsync(user, password, false, false);
-                    if (signInResult.Succeeded)
-                    {
-                        return RedirectToAction(nameof(Index));
-                    }
-                }
+                // # send email confirmation to user to verfiy his email in case we enable 
+                //   required singin confiramtion email option
+                var code = await _usermanger.GenerateEmailConfirmationTokenAsync(user);
+
+                var link = Url.Action(nameof(VerfiyEmail), "Home", new { userId = user.Id, code = code },Request.Scheme,Request.Host.ToString());
+                await _emailSender.SendAsync("test@testto.com","Confirm Email",$"<a href=\"{link}\">VerfiyEmail</a>",true);
+
+
+                // # Inform user that he has to verfiy his email
+                return RedirectToAction(nameof(EmailVerifaction));
+
+                // if (user != null)
+                // {
+                //     var signInResult = await _signInManger.PasswordSignInAsync(user, password, false, false);
+                //     if (signInResult.Succeeded)
+                //     {
+                //         return RedirectToAction(nameof(Index));
+                //     }
+                // }
             }
             return RedirectToAction(nameof(Index));
         }
 
+        public IActionResult EmailVerifaction() => View();
+
+        public async Task<IActionResult> VerfiyEmail(string userId, string code)
+        {
+
+            var user=await _usermanger.FindByIdAsync(userId);
+            if (user==null )return BadRequest();
+
+           var result=await _usermanger.ConfirmEmailAsync(user,code);
+           if (result.Succeeded)
+           {
+            return View();   
+           }else{
+               return BadRequest();
+           }
+            
+        }
         public async Task<IActionResult> Logout()
         {
             await _signInManger.SignOutAsync();
